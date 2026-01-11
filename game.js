@@ -32,6 +32,14 @@ const musicTracks = ['assets/music.mp3', 'assets/music2.mp3', 'assets/music3.mp3
 const bgm = new Audio(); bgm.volume = 0.4;
 const sounds = { jump: new Audio('assets/jump.mp3'), crash: new Audio('assets/crash.mp3') };
 
+// --- SAFETY: Audio Wrapper ---
+function playSound(sound) {
+    if (sound) {
+        sound.currentTime = 0;
+        sound.play().catch(() => {}); 
+    }
+}
+
 // BACKGROUNDS
 const COLOR_STAGES = [
     { top: [30, 60, 114], mid: [42, 82, 152] }, 
@@ -108,7 +116,6 @@ const sharkSystem = {
                 x: 1900, 
                 y: Math.random() * 900 + 50, 
                 speed: gameSpeed * 1.5,
-                // Assign a random starting phase for the bobbing motion
                 bobPhase: Math.random() * Math.PI * 2 
             });
         }
@@ -117,7 +124,6 @@ const sharkSystem = {
     draw(timestamp) {
         if (phaseActive === "canyon") return;
         this.sharks.forEach(s => {
-            // Decoupled from s.x (speed) so bobbing stays consistent
             let waveY = Math.sin((timestamp * 0.003) + s.bobPhase) * 10;
             ctx.drawImage(sharkSprite, s.x, s.y + waveY, 70, 70);
         });
@@ -132,6 +138,9 @@ const player = {
         this.prevVelocity = this.velocity;
         this.velocity += this.gravity * dt;
         this.y += this.velocity * dt;
+
+        // --- SAFETY: NaN Protection ---
+        if (isNaN(this.y)) { this.y = 500; this.velocity = 0; }
 
         if (this.prevVelocity > 0 && this.velocity < 0) this.createSplash();
 
@@ -189,9 +198,17 @@ const player = {
         const tw = ctx.measureText(text).width;
         const bx = this.x + 50, by = this.y - 120, bw = tw + 30, bh = 50;
         ctx.fillStyle = "white"; ctx.strokeStyle = "black"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10);
-        ctx.moveTo(bx + 20, by + bh); ctx.lineTo(bx + 10, by + bh + 15); ctx.lineTo(bx + 40, by + bh);
+        
+        // --- SAFETY: Using standard Rectangles instead of roundRect ---
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeRect(bx, by, bw, bh);
+        
+        ctx.beginPath();
+        ctx.moveTo(bx + 20, by + bh); 
+        ctx.lineTo(bx + 10, by + bh + 15); 
+        ctx.lineTo(bx + 40, by + bh);
         ctx.fill(); ctx.stroke();
+        
         ctx.fillStyle = "black"; ctx.textAlign = "left"; ctx.fillText(text, bx + 15, by + 32);
     }
 };
@@ -203,20 +220,9 @@ const boulders = {
         const speedIncrements = Math.floor(score / 50);
         gameSpeed = baseSpeed + (speedIncrements * 30);
 
-        // --- NEW CYCLE LOGIC ---
-        // Total cycle is now 650 (450 Open Sea + 200 Canyon)
         const cycle = score % 650; 
-        
-        // Trigger Canyon at 450
-        if (cycle >= 450 && phaseActive === "open_sea") { 
-            startPhaseTransition("canyon"); 
-            return; 
-        }
-        // Trigger Open Sea at 0 (or wrap around)
-        else if (cycle < 450 && score > 0 && phaseActive === "canyon") { 
-            startPhaseTransition("open_sea"); 
-            return; 
-        }
+        if (cycle >= 450 && phaseActive === "open_sea") { startPhaseTransition("canyon"); return; }
+        else if (cycle < 450 && score > 0 && phaseActive === "canyon") { startPhaseTransition("open_sea"); return; }
 
         this.spawnTimer += dt;
         const isC = phaseActive === "canyon";
@@ -229,22 +235,15 @@ const boulders = {
                 const horizontalDist = 140; 
                 const timeToTravel = horizontalDist / gameSpeed;
                 const maxFall = 0.5 * player.gravity * Math.pow(timeToTravel, 2) * 0.8; 
-                
-                // --- INCREASED WAVINESS ---
                 this.channelDrift += (Math.random() - 0.5) * 180; 
                 this.channelDrift *= 0.99; 
-                
                 const maxVerticalVelocity = maxFall / timeToTravel;
                 this.channelDrift = Math.max(-maxVerticalVelocity, Math.min(maxVerticalVelocity, this.channelDrift));
                 this.channelY += this.channelDrift; 
-                
-                // Keep channel centered-ish
                 if (this.channelY < 300) this.channelDrift += 2.5;
                 if (this.channelY > 700) this.channelDrift -= 2.5;
-                
                 this.channelY = Math.max(220, Math.min(780, this.channelY));
                 topH = this.channelY - (gap / 2);
-                
                 if (this.obstacleCounter % 40 === 0) item = 'barrel';
                 else if (Math.random() < 0.1) item = 'coin';
             } else {
@@ -368,7 +367,7 @@ function startGame() {
 
 function gameOver() {
     if (currentState === STATE_GAMEOVER) return;
-    currentState = STATE_GAMEOVER; bgm.pause(); sounds.crash.play();
+    currentState = STATE_GAMEOVER; bgm.pause(); playSound(sounds.crash);
     if (score > highScore) { highScore = score; localStorage.setItem('troubledWatersHighScore', highScore); }
     startHighScoreDisplay.textContent = highScore;
 }
@@ -384,24 +383,37 @@ window.addEventListener('keydown', (e) => {
     }
     if (e.code === 'Space') {
         if (currentState === STATE_PLAYING || currentState === STATE_TRANSITION) { 
-            player.velocity = player.jumpPower; sounds.jump.currentTime=0; sounds.jump.play(); 
+            player.velocity = player.jumpPower; playSound(sounds.jump); 
         }
         else if (currentState === STATE_GAMEOVER || currentState === STATE_START) startGame();
     }
 });
 
-canvas.addEventListener('mousedown', (e) => {
+// --- UPDATED INPUT HANDLER (Handles ALL pointers: Mouse, Touch, Pen) ---
+function handleInput(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) * (1800 / rect.width);
-    const my = (e.clientY - rect.top) * (1000 / rect.height);
+    const mx = (clientX - rect.left) * (1800 / rect.width);
+    const my = (clientY - rect.top) * (1000 / rect.height);
+
     if (currentState === STATE_PAUSED) {
         if (mx >= 750 && mx <= 1050 && my >= 480 && my <= 560) bgm.muted = !bgm.muted;
         else { currentState = STATE_PLAYING; bgm.play(); }
     } else if (currentState === STATE_PLAYING || currentState === STATE_TRANSITION) {
-        player.velocity = player.jumpPower; sounds.jump.currentTime=0; sounds.jump.play();
+        player.velocity = player.jumpPower; playSound(sounds.jump);
     } else if (currentState === STATE_GAMEOVER) startGame();
+}
+
+// --- RESTORED: Snappy Pointer Events ---
+canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); 
+    handleInput(e.clientX, e.clientY);
 });
 
 startButton.addEventListener('click', startGame);
+startButton.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    startGame();
+});
+
 startHighScoreDisplay.textContent = highScore;
 requestAnimationFrame(gameLoop);
