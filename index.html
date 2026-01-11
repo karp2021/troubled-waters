@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <title>Troubled Waters</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1800" height="1000"></canvas>
+        <div id="gameUIOverlay" style="display: none;"> 
+            <span id="scoreDisplay" class="board-bg">TREASURE: 0</span>
+            <span id="highScoreDisplay" class="board-bg">HIGH: 0</span>
+        </div>
+        <div id="startScreen">
+            <img id="startImage" src="assets/start_screen_image.png" alt="Game Start Image">
+            <button id="startButton">SET SAIL!</button>
+            <div class="debug-menu">
+                <div class="debug-option">
+                    <input type="checkbox" id="debugToggle">
+                    <label for="debugToggle">SHOW HITBOXES</label>
+                </div>
+                <div class="debug-option">
+                    <input type="checkbox" id="godModeToggle">
+                    <label for="godModeToggle">GOD MODE (INVINCIBLE)</label>
+                </div>
+            </div>
+            <p class="high-score-text">High Score: <span id="startHighScore">0</span></p>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
