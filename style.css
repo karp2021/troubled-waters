@@ -5,22 +5,22 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    height: 100vh; /* Use 100vh for fallback */
+    height: 100dvh; /* Use dynamic viewport height for modern mobile browsers */
     width: 100vw;
     overflow: hidden;
     font-family: 'Courier New', Courier, monospace;
-    touch-action: none;
+    touch-action: none; /* Disables double-tap to zoom */
 }
 
 #gameContainer {
     position: relative;
-    width: 1800px;
-    height: 1000px;
+    /* Remove fixed dimensions and allow container to flex */
+    width: 100vw;
+    height: 100dvh;
     display: flex;
     justify-content: center;
     align-items: center;
-    transform: scale(min(1, (100vw / 1800), (100vh / 1000)));
-    transform-origin: center center;
 }
 
 canvas {
@@ -29,6 +29,14 @@ canvas {
     background: #1e3c72;
     z-index: 10;
     image-rendering: pixelated;
+    
+    /* --- NEW SCALING LOGIC --- */
+    /* Internal resolution remains 1800x1000, but display size adapts */
+    width: auto;
+    height: auto;
+    max-width: 98vw;  /* Leave a tiny margin */
+    max-height: 98dvh;
+    aspect-ratio: 18/10; /* Forces the correct shape */
 }
 
 #gameUIOverlay {
@@ -47,6 +55,8 @@ canvas {
     box-sizing: border-box;
 }
 
+/* Adjust board size relative to the canvas, not pixels, if possible. 
+   For now, we scale them slightly smaller for mobile safety */
 .board-bg {
     display: inline-flex;
     align-items: center;
@@ -55,9 +65,10 @@ canvas {
     background-size: 100% 100%; 
     background-repeat: no-repeat;
     background-position: center;
-    width: 280px; 
-    height: 90px;
-    font-size: 24px; 
+    /* Use percentages or 'min' to keep them from being huge on small screens */
+    width: clamp(150px, 15vw, 280px); 
+    height: clamp(50px, 5vw, 90px);
+    font-size: clamp(12px, 1.5vw, 24px); 
     color: #ffffff;
     text-shadow: 2px 2px 2px #000;
     font-weight: bold;
@@ -68,10 +79,9 @@ canvas {
 
 #startScreen {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 1800px;
-    height: 1000px;
+    /* Use percentages to match the canvas size, not fixed pixels */
+    width: 100%; 
+    height: 100%;
     background-color: rgba(0, 0, 0, 0.85);
     display: flex;
     flex-direction: column;
@@ -96,7 +106,7 @@ canvas {
 
 #startButton {
     padding: 15px 40px;
-    font-size: 40px;
+    font-size: clamp(20px, 4vw, 40px); /* Responsive font size */
     font-weight: bold;
     cursor: pointer;
     background: linear-gradient(180deg, #d4af37 0%, #ffdf00 100%);
@@ -129,16 +139,17 @@ canvas {
 .debug-option input { width: 20px; height: 20px; cursor: pointer; }
 .high-score-text { margin-top: 20px; font-size: 24px; color: #d4af37; }
 
-/* --- NEW: Rotate Message Styles --- */
+/* --- ROTATE MESSAGE (Improved) --- */
 #rotateMessage {
-    display: none; /* Hidden by default */
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
     background-color: #1a1a1a;
-    z-index: 9999;
+    z-index: 9999; /* Highest priority */
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -146,17 +157,8 @@ canvas {
     text-align: center;
 }
 
-.rotate-content h1 {
-    font-size: 2rem;
-    margin-bottom: 10px;
-}
-
-.rotate-content p {
-    font-size: 1.2rem;
-    color: white;
-    margin-bottom: 20px;
-}
-
+.rotate-content h1 { font-size: 2rem; margin-bottom: 10px; }
+.rotate-content p { font-size: 1.2rem; color: white; margin-bottom: 20px; }
 .phone-icon {
     font-size: 4rem;
     animation: rotateIcon 2s infinite ease-in-out;
@@ -168,13 +170,12 @@ canvas {
     100% { transform: rotate(0deg); }
 }
 
-/* --- The Magic Switch --- */
-/* If the screen is taller than it is wide (Portrait), show the message */
+/* --- THE MEDIA QUERY SWITCH --- */
 @media screen and (orientation: portrait) {
     #rotateMessage {
-        display: flex;
+        display: flex !important; /* Force display */
     }
     #gameContainer {
-        display: none; /* Hide game to prevent weird resizing issues */
+        display: none !important; /* Force hide game */
     }
 }
